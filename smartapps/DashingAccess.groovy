@@ -4,7 +4,7 @@
  *  Copyright 2014 florianz
  *
  *  Author: florianz
- *  Contributor: bmmiller, Dianoga, mattjfrank
+ *  Contributor: bmmiller, Dianoga, mattjfrank, redbackninjas
  *
  */
 
