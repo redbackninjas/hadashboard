@@ -4,7 +4,7 @@
  *  Copyright 2014 florianz
  *
  *  Author: florianz
- *  Contributor: bmmiller, Dianoga, mattjfrank, ronnycarr
+ *  Contributor: bmmiller, Dianoga, mattjfrank
  *
  */
 
@@ -34,12 +34,13 @@ preferences {
         input "meters", "capability.powerMeter", title: "Which meters?", multiple: true, required: false
         input "motions", "capability.motionSensor", title: "Which motion sensors?", multiple: true, required: false
         input "presences", "capability.presenceSensor", title: "Which presence sensors?", multiple: true, required: false
-        input "dimmers", "capability.switchLevel", title: "Which dimmers?", multiple: true, required: false
         input "switches", "capability.switch", title: "Which switches?", multiple: true, required: false
         input "temperatures", "capability.temperatureMeasurement", title: "Which temperature sensors?", multiple: true, required: false
         input "humidities", "capability.relativeHumidityMeasurement", title: "Which humidity sensors?", multiple: true, required: false
+        input "smokes", "capability.smokeDetector", title: "Which smoke detectors?", multiple: true, required: false
+        }
 
-    }
+
 }
 
 
@@ -90,17 +91,6 @@ mappings {
             GET: "getPresence"
         ]
     }
-    path("/dimmer") {
-        action: [
-            GET: "getDimmer",
-            POST: "postDimmer"
-        ]
-    }
-    path("/dimmerLevel") {
-        action: [
-            POST: "dimmerLevel"
-        ]
-    }
     path("/switch") {
         action: [
             GET: "getSwitch",
@@ -115,6 +105,11 @@ mappings {
     path("/humidity") {
         action: [
             GET: "getHumidity"
+        ]
+    }
+    path("/smoke") {
+        action: [
+            GET: "getSmoke"
         ]
     }
     path("/weather") {
@@ -147,11 +142,10 @@ def initialize() {
         "motion": [:],
         "power": [:],
         "presence": [:],
-        "dimmer": [:],
         "switch": [:],
         "temperature": [:],
         "humidity": [:],
-
+        "smoke": [:],
         ]
 
     subscribe(contacts, "contact", contactHandler)
@@ -160,11 +154,10 @@ def initialize() {
     subscribe(motions, "motion", motionHandler)
     subscribe(meters, "power", meterHandler)
     subscribe(presences, "presence", presenceHandler)
-    subscribe(dimmers, "switch", dimmerSwitch)
-    subscribe(dimmers, "level", dimmerHandler)
     subscribe(switches, "switch", switchHandler)
     subscribe(temperatures, "temperature", temperatureHandler)
     subscribe(humidities, "humidity", humidityHandler)
+    subscribe(smokes, "smoke", smokeHandler)
 
 }
 
@@ -422,82 +415,6 @@ def presenceHandler(evt) {
 }
 
 //
-// Dimmers
-//
-def getDimmer() {
-    def deviceId = request.JSON?.deviceId
-    log.debug "getDimmer ${deviceId}"
-
-    if (deviceId) {
-        registerWidget("dimmer", deviceId, request.JSON?.widgetId)
-
-        def whichDimmer = dimmers.find { it.displayName == deviceId }
-        if (!whichDimmer) {
-            return respondWithStatus(404, "Device '${deviceId}' not found.")
-        } else {
-            return [
-                "deviceId": deviceId,
-                "level": whichDimmer.currentValue("level"),
-                "state": whichDimmer.currentValue("switch")
-            ]
-        }
-    }
-
-    def result = [:]
-    dimmers.each {
-        result[it.displayName] = [
-            "state": it.currentValue("switch"),
-            "level": it.currentValue("level"),
-            "widgetId": state.widgets.dimmer[it.displayName]]}
-
-    return result
-}
-
-def postDimmer() {
-    def command = request.JSON?.command
-    def deviceId = request.JSON?.deviceId
-    log.debug "postDimmer ${deviceId}, ${command}"
-
-    if (command && deviceId) {
-        def whichDimmer = dimmers.find { it.displayName == deviceId }
-        if (!whichDimmer) {
-            return respondWithStatus(404, "Device '${deviceId}' not found.")
-        } else {
-            whichDimmer."$command"()
-        }
-    }
-    return respondWithSuccess()
-}
-
-def dimmerLevel() {
-    def command = request.JSON?.command
-    def deviceId = request.JSON?.deviceId
-    log.debug "dimmerLevel ${deviceId}, ${command}"
-    command = command.toInteger()
-    if (command && deviceId) {
-        def whichDimmer = dimmers.find { it.displayName == deviceId }
-        if (!whichDimmer) {
-            return respondWithStatus(404, "Device '${deviceId}' not found.")
-        } else {
-            whichDimmer.setLevel(command)
-        }
-    }
-    return respondWithSuccess()
-}
-
-def dimmerHandler(evt) {
-    def widgetId = state.widgets.dimmer[evt.displayName]
-    pause(1000)
-    notifyWidget(widgetId, ["level": evt.value])
-}
-
-def dimmerSwitch(evt) {
-    def whichDimmer = dimmers.find { it.displayName == evt.displayName }
-    def widgetId = state.widgets.dimmer[evt.displayName]
-    notifyWidget(widgetId, ["state": evt.value])
-}
-
-//
 // Switches
 //
 def getSwitch() {
@@ -614,6 +531,42 @@ def humidityHandler(evt) {
     def widgetId = state.widgets.humidity[evt.displayName]
     notifyWidget(widgetId, ["value": evt.value])
 }
+
+
+//
+// Smokes
+//
+def getSmoke() {
+    def deviceId = request.JSON?.deviceId
+    log.debug "getSmoke ${deviceId}"
+
+    if (deviceId) {
+        registerWidget("smoke", deviceId, request.JSON?.widgetId)
+
+        def whichSmoke = smokes.find { it.displayName == deviceId }
+        if (!whichSmoke) {
+            return respondWithStatus(404, "Device '${deviceId}' not found.")
+        } else {
+            return [
+                "deviceId": deviceId,
+                "state": whichSmoke.currentSmoke]
+        }
+    }
+
+    def result = [:]
+    smokes.each {
+        result[it.displayName] = [
+            "state": it.currentSmoke,
+            "widgetId": state.widgets.smoke[it.displayName]]}
+
+    return result
+}
+
+def smokeHandler(evt) {
+    def widgetId = state.widgets.smoke[evt.displayName]
+    notifyWidget(widgetId, ["state": evt.value])
+}
+
 
 //
 // Weather
